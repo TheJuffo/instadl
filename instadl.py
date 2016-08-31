@@ -8,6 +8,7 @@ import requests
 
 _units = dict(d=60*60*24, h=60*60, m=60, s=1)
 def makedelta(deltavalue):
+    '''Creates a timedelta value from a string.'''
     seconds = 0
     defaultunit = unit = _units['m']  # default to minutes
     value = ''
@@ -30,7 +31,7 @@ def makedelta(deltavalue):
         seconds = unit * int(value)
     return datetime.timedelta(seconds=seconds)
 
-
+# Command line arguments
 parser = argparse.ArgumentParser(description='Downloads the most recent Instagram images. Uses the accesstoken(s) from the specified file.')
 
 parser.add_argument('filename', type=str, help='A whitespace delimited file containing access tokens to download images from.')
@@ -61,15 +62,16 @@ i = args.repeat
 while args.forever or i > 0:
     i = i - 1
 
+    # Reads the accesstokens file on every round, as accesstokens may have changed or have been added or removed.
     with open(args.filename, 'r') as f:
         accesstokens = f.read().splitlines()
-    
-    imagecount = args.imagecount
+
     
     for accesstoken in accesstokens:
         recentMedia = requests.get('https://api.instagram.com/v1/users/self/media/recent/?access_token=' + accesstoken, proxies=proxies)
         recentMedia.raise_for_status()
-
+        
+        # This list contains tuples where the item on position 0 is the filename and position 1 is the url for the image.
         images = [(os.path.join(args.imagedir, item['id'] + '.jpg'), item['images']['standard_resolution']['url']) for item in recentMedia.json()['data'][0: args.imagecount]]
 
         for image in images:
@@ -80,5 +82,6 @@ while args.forever or i > 0:
                 with open(image[0], 'wb') as file:
                     file.write(BytesIO(imageData.content).read())
 
+    # Sleeps if it needs to go another round
     if args.forever or i > 0:
         time.sleep(args.interval.total_seconds())
